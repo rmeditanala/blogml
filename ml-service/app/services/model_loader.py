@@ -45,7 +45,7 @@ class ModelLoader:
             "Content-Type": "application/json"
         }
 
-        api_url = f"https://api-inference.huggingface.co/models/{model_name}"
+        api_url = f"https://router.huggingface.co/hf-inference/models/{model_name}"
 
         try:
             response = requests.post(api_url, headers=headers, json=inputs, timeout=30)
@@ -165,10 +165,18 @@ class ModelLoader:
 
                 # Format API response to match expected structure
                 if isinstance(response, list) and len(response) > 0:
-                    result = response[0]
+                    # Handle nested list structure: [[{'label': 'positive', 'score': 0.97}, ...]]
+                    if len(response) == 1 and isinstance(response[0], list):
+                        predictions = response[0]
+                    else:
+                        predictions = response
+
+                    # Take the highest scoring prediction
+                    # API returns: [{'label': 'positive', 'score': 0.97}, {'label': 'neutral', 'score': 0.02}, ...]
+                    best_prediction = max(predictions, key=lambda x: x.get('score', 0.0))
                     return [{
-                        'label': result.get('label', 'NEUTRAL'),
-                        'score': result.get('score', 0.0)
+                        'label': best_prediction.get('label', 'NEUTRAL'),
+                        'score': best_prediction.get('score', 0.0)
                     }]
                 else:
                     return [{'label': 'NEUTRAL', 'score': 0.0}]
