@@ -5,9 +5,9 @@
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center py-6">
           <div>
-            <h1 class="text-3xl font-bold text-gray-900">My Posts</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Latest Blog Posts</h1>
             <p class="mt-1 text-sm text-gray-500">
-              {{ posts.length }} post{{ posts.length !== 1 ? 's' : '' }} created by you
+              {{ posts.length }} post{{ posts.length !== 1 ? 's' : '' }} published
             </p>
           </div>
         </div>
@@ -28,12 +28,13 @@
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-            <select v-model="statusFilter" class="input-field">
-              <option value="">All Posts</option>
-              <option value="published">Published</option>
-              <option value="draft">Drafts</option>
-              <option value="ai">AI Generated</option>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Filter by Category</label>
+            <select v-model="categoryFilter" class="input-field">
+              <option value="">All Categories</option>
+              <option value="technology">Technology</option>
+              <option value="business">Business</option>
+              <option value="lifestyle">Lifestyle</option>
+              <option value="tutorial">Tutorial</option>
             </select>
           </div>
         </div>
@@ -59,13 +60,8 @@
         </svg>
         <h3 class="mt-2 text-sm font-medium text-gray-900">No posts found</h3>
         <p class="mt-1 text-sm text-gray-500">
-          {{ searchQuery ? 'Try adjusting your search terms' : "You haven't created any posts yet" }}
+          {{ searchQuery ? 'Try adjusting your search terms' : 'No blog posts available yet' }}
         </p>
-        <div v-if="!searchQuery && isAuthenticated" class="mt-6">
-          <router-link to="/posts/create" class="btn btn-primary">
-            Create Your First Post
-          </router-link>
-        </div>
       </div>
 
       <div v-else class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -74,6 +70,16 @@
           :key="post.id"
           class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
         >
+          <!-- Featured Image -->
+          <div v-if="post.featured_image" class="h-48 bg-gray-200">
+            <img
+              :src="post.featured_image"
+              :alt="post.title"
+              class="w-full h-full object-cover"
+              @error="handleImageError"
+            >
+          </div>
+
           <div class="p-6">
             <div class="flex items-center justify-between mb-2">
               <span
@@ -93,7 +99,9 @@
             </div>
 
             <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-              {{ post.title }}
+              <router-link :to="`/posts/${post.slug}`" class="hover:text-blue-600">
+                {{ post.title }}
+              </router-link>
             </h3>
 
             <p class="text-gray-600 text-sm mb-4 line-clamp-3">
@@ -125,15 +133,12 @@
                 Read More
               </router-link>
 
-              <div v-if="isAuthenticated && post.user_id === currentUserId" class="flex space-x-2">
-                <router-link
-                  :to="`/posts/${post.slug}/edit`"
-                  class="text-gray-600 hover:text-gray-800"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                  </svg>
-                </router-link>
+              <div v-if="post.author" class="flex items-center text-sm text-gray-500">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14s-4 4-4 4 4 4 0 4 4-4-4z"></path>
+                </svg>
+                {{ post.author.name }}
               </div>
             </div>
           </div>
@@ -190,23 +195,22 @@ const authStore = useAuthStore()
 const posts = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
-const statusFilter = ref('')
+const categoryFilter = ref('')
 const currentPage = ref(1)
 const postsPerPage = 9
 
-const isAuthenticated = computed(() => authStore.isAuthenticated)
-const currentUserId = computed(() => authStore.user?.id)
 
 const filteredPosts = computed(() => {
   let filtered = posts.value
 
-  // Filter by status
-  if (statusFilter.value) {
-    if (statusFilter.value === 'ai') {
-      filtered = filtered.filter(post => post.is_ai_generated)
-    } else {
-      filtered = filtered.filter(post => post.status === statusFilter.value)
-    }
+  // Only show published posts on homepage
+  filtered = filtered.filter(post => post.status === 'published')
+
+  // Filter by category
+  if (categoryFilter.value) {
+    filtered = filtered.filter(post =>
+      post.category === categoryFilter.value
+    )
   }
 
   // Search
@@ -236,10 +240,10 @@ const paginatedPosts = computed(() => {
 const fetchPosts = async () => {
   loading.value = true
   try {
-    const response = await postService.getUserPosts()
+    const response = await postService.getPosts()
     posts.value = response.data || response.posts || []
   } catch (error) {
-    console.error('Failed to fetch user posts:', error)
+    console.error('Failed to fetch posts:', error)
   } finally {
     loading.value = false
   }
@@ -254,8 +258,12 @@ const formatDate = (dateString) => {
   })
 }
 
+const handleImageError = (event) => {
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB4b2xpZGVnaW5nPSJodHRwOi8vd3d3LnczL21ldGEvc3ZnIiB3aW5kZWR0PSIwIDAgMTAwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMSAyMSIgZmlsbD0iI0UzODA4MCcgZmlsbC9vYzJkYW5kLTEiLz48L3N2Zz4K'
+}
+
 // Watch for filter changes to reset pagination
-watch([searchQuery, statusFilter], () => {
+watch([searchQuery, categoryFilter], () => {
   currentPage.value = 1
 })
 
@@ -267,15 +275,27 @@ onMounted(() => {
 <style scoped>
 .line-clamp-2 {
   display: -webkit-box;
+  display: -moz-box;
+  display: box;
   -webkit-line-clamp: 2;
+  -moz-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
+  -moz-box-orient: vertical;
+  box-orient: vertical;
   overflow: hidden;
 }
 
 .line-clamp-3 {
   display: -webkit-box;
+  display: -moz-box;
+  display: box;
   -webkit-line-clamp: 3;
+  -moz-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
+  -moz-box-orient: vertical;
+  box-orient: vertical;
   overflow: hidden;
 }
 </style>

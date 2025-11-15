@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 // Components
+import HomeView from '../views/HomeView.vue'
 import PostsView from '../views/PostsView.vue'
 import PostDetailView from '../views/PostDetailView.vue'
 import LoginView from '../views/LoginView.vue'
@@ -12,8 +13,8 @@ import CreatePostView from '../views/CreatePostView.vue'
 const routes = [
   {
     path: '/',
-    name: 'Posts',
-    component: PostsView,
+    name: 'Home',
+    component: HomeView,
     meta: { title: 'BlogML - Home' }
   },
   {
@@ -88,7 +89,7 @@ router.beforeEach((to, from, next) => {
 
   // Check if route is for guests only
   if (to.meta.guest && authStore.isAuthenticated) {
-    next({ name: 'Posts' })
+    next({ name: 'Home' })
     return
   }
 
