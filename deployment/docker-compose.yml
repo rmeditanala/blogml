@@ -1,0 +1,178 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: blogml-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-blogml}
+      MYSQL_USER: ${DB_USERNAME:-blogml_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-blogml_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: blogml-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - blogml-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 10s
+      retries: 5
+
+  # Backend API (Laravel)
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../deployment/backend/Dockerfile
+    container_name: blogml-backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-BlogML}
+      APP_ENV: ${APP_ENV:-local}
+      APP_KEY: ${APP_KEY:-base64:EWsyRMLy784gJZfY8RqX9tWcA6ZI9rsue4e2X}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:9000}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stack}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-blogml}
+      DB_USERNAME: ${DB_USERNAME:-blogml_user}
+      DB_PASSWORD: ${DB_PASSWORD:-blogml_password}
+      BROADCAST_DRIVER: log
+      CACHE_DRIVER: redis
+      FILESYSTEM_DISK: local
+      QUEUE_CONNECTION: database
+      SESSION_DRIVER: file
+      SESSION_LIFETIME: 120
+      REDIS_HOST: redis
+      REDIS_PASSWORD: null
+      REDIS_PORT: 6379
+      MEMCACHED_HOST: 127.0.0.1:11211
+      ML_SERVICE_URL: http://ml-service:8000
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: null
+      MAIL_PASSWORD: null
+      MAIL_ENCRYPTION: null
+      MAIL_FROM_ADDRESS: "hello@example.com"
+      MAIL_FROM_NAME: "${APP_NAME}"
+    ports:
+      - "9000:9000"
+    volumes:
+      - ../backend:/var/www/html
+      - ../backend/storage:/var/www/html/storage
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      timeout: 30s
+      retries: 5
+
+  # ML Service (Python FastAPI)
+  ml-service:
+    build:
+      context: ../ml-service
+      dockerfile: ../deployment/ml-service/Dockerfile
+    container_name: blogml-ml-service
+    restart: unless-stopped
+    environment:
+      HF_TOKEN: ${HF_TOKEN}
+      REDIS_URL: redis://redis:6379
+      BACKEND_URL: http://backend:9000
+      LOG_LEVEL: ${ML_LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../ml-service:/app
+    depends_on:
+      - redis
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      timeout: 30s
+      retries: 5
+
+  # Frontend (Vue.js)
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../deployment/frontend/Dockerfile
+    container_name: blogml-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:9000}
+      VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-http://localhost:8000}
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - ml-service
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      timeout: 30s
+      retries: 5
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: blogml-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      timeout: 30s
+      retries: 5
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  blogml-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
