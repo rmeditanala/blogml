@@ -169,13 +169,56 @@ class CommentController extends Controller
                 ]
             ]);
 
-            // TODO: Integrate with ML service for sentiment analysis
-            // For now, set neutral sentiment
-            $comment->update([
-                'sentiment_score' => 0.5,
-                'sentiment_label' => Comment::SENTIMENT_NEUTRAL,
-                'sentiment_confidence' => 0.8,
-            ]);
+            // Integrate with ML service for sentiment analysis
+            if (config('services.ml.enabled', true)) {
+                try {
+                    $sentimentAnalysis = $this->analyzeSentiment($comment->content);
+
+                    if ($sentimentAnalysis && isset($sentimentAnalysis['sentiment'])) {
+                        // Map ML service sentiment to Comment model constants
+                        $sentimentLabel = $this->mapSentimentLabel($sentimentAnalysis['sentiment']);
+                        $sentimentScore = $this->calculateSentimentScore($sentimentAnalysis['sentiment'], $sentimentAnalysis['confidence'] ?? 0.5);
+
+                        $comment->update([
+                            'sentiment_score' => $sentimentScore,
+                            'sentiment_label' => $sentimentLabel,
+                            'sentiment_confidence' => $sentimentAnalysis['confidence'] ?? 0.5,
+                        ]);
+
+                        // Log ML service usage for analytics
+                        \Log::info('Sentiment analysis completed for comment ' . $comment->id, [
+                            'sentiment' => $sentimentAnalysis['sentiment'],
+                            'confidence' => $sentimentAnalysis['confidence'],
+                            'cached' => $sentimentAnalysis['cached'] ?? false,
+                            'word_count' => $comment->word_count,
+                        ]);
+                    } else {
+                        // Fallback to neutral if ML service fails
+                        $comment->update([
+                            'sentiment_score' => 0.5,
+                            'sentiment_label' => Comment::SENTIMENT_NEUTRAL,
+                            'sentiment_confidence' => 0.3, // Lower confidence for fallback
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // Log the error but don't fail comment creation
+                    \Log::warning('Sentiment analysis failed for comment ' . $comment->id . ': ' . $e->getMessage());
+
+                    // Set neutral sentiment as fallback
+                    $comment->update([
+                        'sentiment_score' => 0.5,
+                        'sentiment_label' => Comment::SENTIMENT_NEUTRAL,
+                        'sentiment_confidence' => 0.3, // Lower confidence for fallback
+                    ]);
+                }
+            } else {
+                // ML service disabled, set neutral sentiment
+                $comment->update([
+                    'sentiment_score' => 0.5,
+                    'sentiment_label' => Comment::SENTIMENT_NEUTRAL,
+                    'sentiment_confidence' => 1.0, // High confidence for manual neutral assignment
+                ]);
+            }
 
             DB::commit();
 
@@ -468,6 +511,75 @@ class CommentController extends Controller
                 'last_page' => $comments->lastPage(),
             ],
         ]);
+    }
+
+    /**
+     * Analyze sentiment using ML service.
+     */
+    private function analyzeSentiment(string $text): ?array
+    {
+        try {
+            $mlServiceUrl = config('services.ml.url', 'http://localhost:8000') . '/sentiment';
+            $timeout = config('services.ml.timeout', 10);
+
+            $response = \Http::timeout($timeout)->post($mlServiceUrl, [
+                'text' => $text
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'sentiment' => $data['sentiment'] ?? 'NEUTRAL',
+                    'confidence' => $data['confidence'] ?? 0.5,
+                    'cached' => $data['cached'] ?? false
+                ];
+            } else {
+                \Log::warning('ML service request failed', [
+                    'status' => $response->status(),
+                    'response' => $response->body(),
+                    'url' => $mlServiceUrl,
+                    'text_length' => strlen($text)
+                ]);
+                return null;
+            }
+        } catch (\Exception $e) {
+            \Log::warning('ML service connection failed', [
+                'error' => $e->getMessage(),
+                'text_length' => strlen($text),
+                'url' => config('services.ml.url', 'http://localhost:8000') . '/api/sentiment'
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Map ML service sentiment label to Comment model constant.
+     */
+    private function mapSentimentLabel(string $mlSentiment): string
+    {
+        $sentimentMap = [
+            'POSITIVE' => Comment::SENTIMENT_POSITIVE,
+            'NEGATIVE' => Comment::SENTIMENT_NEGATIVE,
+            'NEUTRAL' => Comment::SENTIMENT_NEUTRAL,
+        ];
+
+        return $sentimentMap[strtoupper($mlSentiment)] ?? Comment::SENTIMENT_NEUTRAL;
+    }
+
+    /**
+     * Calculate sentiment score based on sentiment and confidence.
+     */
+    private function calculateSentimentScore(string $sentiment, float $confidence): float
+    {
+        switch (strtoupper($sentiment)) {
+            case 'POSITIVE':
+                return 0.5 + ($confidence * 0.5); // 0.5 to 1.0
+            case 'NEGATIVE':
+                return 0.5 - ($confidence * 0.5); // 0.0 to 0.5
+            case 'NEUTRAL':
+            default:
+                return 0.5; // Neutral score
+        }
     }
 
     /**
