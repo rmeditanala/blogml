@@ -12,11 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->api(prepend: [
-            \App\Http\Middleware\HandleCORS::class,
-        ]);
+        // Let Laravel's built-in CORS handle it
+        // $middleware->api(prepend: [
+        //     \App\Http\Middleware\HandleCORS::class,
+        // ]);
 
-        // Temporarily comment out Sanctum middleware to test CORS
+        // Temporarily disable Sanctum middleware to use token-based auth
         // $middleware->api([
         //     \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         // ]);
