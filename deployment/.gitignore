@@ -10,6 +10,7 @@
 # Contains sensitive information like database passwords, API keys, and secrets
 .env
 .env.local
+.env.development
 .env.production
 .env.staging
 .env.*.local
