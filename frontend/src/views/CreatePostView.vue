@@ -142,29 +142,16 @@
 
             <!-- Status -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">
-                Status
+              <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
+                Post Status
               </label>
-              <div class="flex space-x-6">
-                <label class="flex items-center">
-                  <input
-                    v-model="form.status"
-                    type="radio"
-                    value="published"
-                    class="mr-2"
-                  >
-                  <span>Publish Now</span>
-                </label>
-                <label class="flex items-center">
-                  <input
-                    v-model="form.status"
-                    type="radio"
-                    value="draft"
-                    class="mr-2"
-                  >
-                  <span>Save as Draft</span>
-                </label>
-              </div>
+              <select id="status" v-model="form.status" class="input-field">
+                <option value="draft">📝 Draft</option>
+                <option value="published">🚀 Publish Now</option>
+              </select>
+              <p class="mt-1 text-sm text-gray-500">
+                Choose whether to save as draft or publish immediately.
+              </p>
             </div>
 
             <!-- AI Blog Post Generation -->
@@ -246,40 +233,7 @@
               </div>
             </div>
 
-            <!-- AI Writing Assistant -->
-            <div class="border-t border-gray-200 pt-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-4">AI Writing Assistant</h3>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  @click="generateOutline"
-                  :disabled="aiLoading || !form.title"
-                  class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <svg v-if="aiLoading" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {{ aiLoading ? 'Generating...' : 'Generate Outline' }}
-                </button>
-                <button
-                  type="button"
-                  @click="expandContent"
-                  :disabled="aiLoading || !form.content"
-                  class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <svg v-if="aiLoading" class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {{ aiLoading ? 'Expanding...' : 'Expand Content' }}
-                </button>
-              </div>
-              <p class="mt-2 text-sm text-gray-500">
-                Use AI to help with content generation and improvement.
-              </p>
-            </div>
-          </div>
+                      </div>
 
           <!-- Form Actions -->
           <div class="border-t border-gray-200 pt-6">
@@ -290,29 +244,19 @@
               >
                 Cancel
               </router-link>
-              <div class="flex space-x-3">
-                <button
-                  type="button"
-                  @click="saveDraft"
-                  :disabled="isLoading"
-                  class="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {{ isLoading ? 'Saving...' : 'Save Draft' }}
-                </button>
-                <button
-                  type="submit"
-                  :disabled="isLoading || !form.title || !form.content"
-                  class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span v-if="isLoading" class="mr-2">
-                    <svg class="animate-spin h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  </span>
-                  {{ isLoading ? 'Publishing...' : 'Publish Post' }}
-                </button>
-              </div>
+              <button
+                type="submit"
+                :disabled="isLoading || !form.title || !form.content"
+                class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span v-if="isLoading" class="mr-2">
+                  <svg class="animate-spin h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </span>
+                {{ isLoading ? (form.status === 'published' ? 'Publishing...' : 'Saving...') : (form.status === 'published' ? '🚀 Publish Post' : '📝 Save Draft') }}
+              </button>
             </div>
           </div>
         </form>
@@ -324,13 +268,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 import { postService } from '../services/postService'
 import { imageService } from '../services/imageService'
 import { mlService } from '../services/mlService'
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 // Image upload state
 const imageInput = ref(null)
@@ -365,57 +307,75 @@ const wordCount = computed(() => {
   return form.value.content.trim().split(/\s+/).filter(word => word.length > 0).length
 })
 
-// Generate excerpt from content
-const generateExcerptFromContent = (content, topic) => {
+// Generate excerpt from content using AI
+const generateExcerptFromContent = async (content, topic) => {
   if (!content) return ''
 
-  // Remove markdown formatting
+  try {
+    // Use ML service to create a summary
+    const summaryPrompt = `Create a compelling excerpt/summary for a blog post about "${topic}".
+
+Here is the blog post content:
+${content}
+
+Requirements for the excerpt:
+- Write 2-3 sentences that summarize the main points
+- Make it engaging and informative to encourage readers to click
+- Keep it under 300 characters for SEO purposes
+- Focus on the value readers will get from this post
+- Write in a clear, accessible tone
+- Do NOT copy exact sentences from the content - create a new summary
+- End with a hint of what readers will learn
+
+Generate only the excerpt text, no additional commentary.`
+
+    const response = await mlService.generateText(summaryPrompt, 150, 0.7)
+    let generatedExcerpt = response.generated_text || response
+
+    // Clean up the generated excerpt
+    if (generatedExcerpt) {
+      generatedExcerpt = generatedExcerpt
+        .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+        .replace(/^(Excerpt|Summary:?\s*)/i, '') // Remove prefixes
+        .trim()
+
+      // Ensure it's not too long for SEO
+      if (generatedExcerpt.length > 280) {
+        const lastSentence = generatedExcerpt.lastIndexOf('.')
+        if (lastSentence > 100 && lastSentence < 270) {
+          generatedExcerpt = generatedExcerpt.substring(0, lastSentence + 1)
+        } else {
+          generatedExcerpt = generatedExcerpt.substring(0, 270) + '...'
+        }
+      }
+
+      return generatedExcerpt
+    }
+  } catch (error) {
+    console.warn('AI excerpt generation failed, using fallback:', error.message)
+  }
+
+  // Fallback to simple extraction if AI fails
   const cleanContent = content
-    .replace(/#{1,6}\s+/g, '') // Remove headers
-    .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
-    .replace(/\*(.*?)\*/g, '$1') // Remove italics
-    .replace(/`(.*?)`/g, '$1') // Remove inline code
-    .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links, keep text
-    .replace(/^\s*[-*+]\s+/gm, '') // Remove list markers
-    .replace(/^\s*\d+\.\s+/gm, '') // Remove numbered list markers
-    .replace(/\n+/g, ' ') // Replace newlines with spaces
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/^\s*[-*+]\s+/gm, '')
+    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
 
-  // Split into sentences
   const sentences = cleanContent.split('.').filter(s => s.trim().length > 10)
+  let excerpt = sentences.slice(0, 2).join('.').trim()
 
-  // Try to get first 2-3 meaningful sentences
-  let excerpt = sentences.slice(0, 3).join('.').trim()
-
-  // If too short, get more sentences
-  if (excerpt.length < 100 && sentences.length > 3) {
-    excerpt = sentences.slice(0, 5).join('.').trim()
+  if (excerpt.length > 280) {
+    excerpt = excerpt.substring(0, 270) + '...'
   }
 
-  // If still too short, use first part of content
-  if (excerpt.length < 50) {
-    excerpt = cleanContent.substring(0, 200).trim()
-    // Find last complete sentence
-    const lastPeriod = excerpt.lastIndexOf('.')
-    if (lastPeriod > 50) {
-      excerpt = excerpt.substring(0, lastPeriod + 1)
-    } else if (excerpt.length > 150) {
-      excerpt = excerpt.substring(0, 150) + '...'
-    }
-  }
-
-  // Ensure excerpt isn't too long (max 300 characters for SEO)
-  if (excerpt.length > 300) {
-    const lastSentence = excerpt.lastIndexOf('.')
-    if (lastSentence > 100 && lastSentence < 280) {
-      excerpt = excerpt.substring(0, lastSentence + 1)
-    } else {
-      excerpt = excerpt.substring(0, 280) + '...'
-    }
-  }
-
-  return excerpt || `A comprehensive guide to ${topic}, covering key concepts, practical applications, and best practices.`
+  return excerpt || `Learn about ${topic} in this comprehensive guide covering key concepts, practical applications, and expert insights.`
 }
 
 const handleSubmit = async () => {
@@ -493,58 +453,6 @@ const removeImage = () => {
   }
 }
 
-const saveDraft = async () => {
-  isLoading.value = true
-  error.value = null
-
-  try {
-    const postData = {
-      ...form.value,
-      status: 'draft'
-    }
-
-    const response = await postService.createPost(postData)
-
-    router.push(`/posts/${response.data.slug}`)
-  } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to save draft'
-    console.error('Save draft error:', err)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const generateOutline = async () => {
-  if (!form.value.title) return
-
-  aiLoading.value = true
-  error.value = null
-
-  try {
-    // Mock AI outline generation (would call AI service in real implementation)
-    const mockOutline = `## Introduction
-- Hook the reader with an interesting opening
-- Briefly introduce the topic and its importance
-- Set expectations for what the reader will learn
-
-## Main Points
-- First key concept or argument
-- Second key concept or argument
-- Third key concept or argument
-
-## Conclusion
-- Summarize the main points
-- Provide a call to action or final thoughts
-- Encourage engagement through comments`
-
-    form.value.content = mockOutline
-  } catch (err) {
-    error.value = 'Failed to generate outline'
-    console.error('AI outline error:', err)
-  } finally {
-    aiLoading.value = false
-  }
-}
 
 const generateBlogPost = async () => {
   if (!aiPrompt.value.trim()) return
@@ -624,7 +532,7 @@ Please create engaging, informative content that provides value to the reader an
 
       // Auto-generate excerpt from content if not provided by ML service
       if (!response.excerpt) {
-        form.value.excerpt = generateExcerptFromContent(response.post_content, aiPrompt.value)
+        form.value.excerpt = await generateExcerptFromContent(response.post_content, aiPrompt.value)
       }
     }
 
@@ -745,7 +653,7 @@ Thank you for taking the time to explore this important topic. We hope this guid
       form.value.content = mockContent
 
       // Auto-generate excerpt from fallback content
-      form.value.excerpt = generateExcerptFromContent(mockContent, aiPrompt.value)
+      form.value.excerpt = await generateExcerptFromContent(mockContent, aiPrompt.value)
 
       aiGenerationStatus.value[2].completed = true
       aiGenerationStatus.value[2].current = false
@@ -765,22 +673,4 @@ Thank you for taking the time to explore this important topic. We hope this guid
   }
 }
 
-const expandContent = async () => {
-  if (!form.value.content) return
-
-  aiLoading.value = true
-  error.value = null
-
-  try {
-    // Mock content expansion (would call AI service in real implementation)
-    const expandedContent = form.value.content + '\n\n## Additional Details\n\nLet me elaborate further on the key points mentioned above. This section provides more depth and context to help readers better understand the concepts and their practical applications.\n\n## Examples and Case Studies\n\nHere are some real-world examples that demonstrate these principles in action. These case studies show how theory translates into practice in various scenarios.'
-
-    form.value.content = expandedContent
-  } catch (err) {
-    error.value = 'Failed to expand content'
-    console.error('AI expand error:', err)
-  } finally {
-    aiLoading.value = false
-  }
-}
 </script>
