@@ -45,19 +45,33 @@ async def analyze_sentiment(request: SentimentRequest):
             result["cached"] = True
             return SentimentResponse(**result)
 
-        # Get prediction
-        sentiment_model = ModelLoader.get_model('sentiment')
-        result = sentiment_model(request.text)[0]
+        # Get prediction using either API or local model
+        result = ModelLoader.analyze_sentiment(request.text)[0]
 
         # Map label to match our schema
+        # Twitter RoBERTa model returns: 'LABEL_0': Negative, 'LABEL_1': Neutral, 'LABEL_2': Positive
         label_map = {
+            'LABEL_0': 'NEGATIVE',
+            'LABEL_1': 'NEUTRAL',
+            'LABEL_2': 'POSITIVE',
             'POSITIVE': 'POSITIVE',
             'NEGATIVE': 'NEGATIVE',
             'NEUTRAL': 'NEUTRAL'
         }
 
-        sentiment = label_map.get(result['label'].upper(), 'NEUTRAL')
-        confidence = float(result['score'])
+        # Handle both the new Twitter model and fallback for old models
+        if isinstance(result, dict) and 'label' in result:
+            sentiment = label_map.get(result['label'].upper(), 'NEUTRAL')
+            # Get score from either 'score' or if results is a list of dictionaries
+            if 'score' in result:
+                confidence = float(result['score'])
+            else:
+                # For models that return list of predictions
+                confidence = 0.0
+        else:
+            # Fallback for unexpected format
+            sentiment = 'NEUTRAL'
+            confidence = 0.0
 
         response_data = {
             "sentiment": sentiment,

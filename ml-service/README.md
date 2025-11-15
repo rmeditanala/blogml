@@ -1,23 +1,24 @@
 # BlogML ML Service
 
-FastAPI-based machine learning service for the BlogML platform. Provides sentiment analysis, image classification, text generation, and recommendation algorithms.
+FastAPI-based machine learning service for the BlogML platform. Provides sentiment analysis, image classification, text generation, and recommendation algorithms using **Hugging Face API** for optimal performance.
 
 ## Features
 
-- **Sentiment Analysis**: Analyze text sentiment using DistilBERT
-- **Image Classification**: Auto-classify and tag images using ResNet50
-- **Text Generation**: Generate blog posts and content using FLAN-T5
+- **Sentiment Analysis**: Analyze text sentiment using Twitter RoBERTa via Hugging Face API
+- **Image Classification**: Auto-classify and tag images using ResNet50 via Hugging Face API
+- **Text Generation**: Generate blog posts and content using FLAN-T5 via Hugging Face API
 - **Recommendations**: Content-based and collaborative filtering
+- **API-First Approach**: No large model downloads required
 - **Caching**: Redis-based caching for better performance
 - **Batch Processing**: Handle multiple requests efficiently
 
-## Quick Start
+## Quick Start (Recommended: Hugging Face API)
 
 ### Prerequisites
 
 - Python 3.11+
 - Redis (optional, for caching)
-- 2GB+ disk space for models
+- Hugging Face API token (get from [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens))
 
 ### Installation
 
@@ -27,23 +28,39 @@ FastAPI-based machine learning service for the BlogML platform. Provides sentime
    pip install -r requirements.txt
    ```
 
-2. **Download models:**
+2. **Set up Hugging Face API:**
    ```bash
-   python scripts/download_models.py
-   ```
+   # Option A: Environment variable
+   export HUGGINGFACE_API_TOKEN=your_token_here
 
-3. **Set environment variables:**
-   ```bash
+   # Option B: .env file
    cp .env.example .env
-   # Edit .env with your configuration
+   # Edit .env and add your HUGGINGFACE_API_TOKEN
    ```
 
-4. **Run the server:**
+3. **Run the server:**
    ```bash
    uvicorn app.main:app --reload
    ```
 
-The service will be available at `http://localhost:8000`
+The service will automatically detect your API token and use Hugging Face's cloud infrastructure. The service will be available at `http://localhost:8000`
+
+## Alternative: Local Models
+
+If you prefer to run models locally (requires 2GB+ disk space):
+
+```bash
+# Remove API token to force local mode
+unset HUGGINGFACE_API_TOKEN
+
+# Download models (this may take a while)
+python scripts/download_models.py
+
+# Run server (will use local models)
+uvicorn app.main:app --reload
+```
+
+**Note:** Local model downloads can be slow and may get stuck. Using the Hugging Face API is highly recommended for better performance and reliability.
 
 ### Docker Setup
 
@@ -51,7 +68,13 @@ The service will be available at `http://localhost:8000`
 # Build image
 docker build -t blogml-ml-service .
 
-# Run with environment variables
+# Run with Hugging Face API (Recommended)
+docker run -p 8000:8000 \
+  -e HUGGINGFACE_API_TOKEN=your_token_here \
+  -e REDIS_HOST=host.docker.internal \
+  blogml-ml-service
+
+# Run with local models (slower, larger image)
 docker run -p 8000:8000 \
   -e REDIS_HOST=host.docker.internal \
   blogml-ml-service
@@ -63,12 +86,12 @@ docker run -p 8000:8000 \
 
 ```bash
 # Single text analysis
-curl -X POST "http://localhost:8000/predict/sentiment/" \
+curl -X POST "http://localhost:8000/sentiment/" \
   -H "Content-Type: application/json" \
   -d '{"text": "I love this blog post!"}'
 
 # Batch analysis
-curl -X POST "http://localhost:8000/predict/sentiment/batch" \
+curl -X POST "http://localhost:8000/sentiment/batch" \
   -H "Content-Type: application/json" \
   -d '{"texts": ["Great post", "Not helpful"]}'
 ```
@@ -77,12 +100,12 @@ curl -X POST "http://localhost:8000/predict/sentiment/batch" \
 
 ```bash
 # Upload image file
-curl -X POST "http://localhost:8000/predict/image-classification/" \
+curl -X POST "http://localhost:8000/image-classification/" \
   -F "file=@image.jpg" \
   -F "max_tags=10"
 
 # Base64 image
-curl -X POST "http://localhost:8000/predict/image-classification/base64" \
+curl -X POST "http://localhost:8000/image-classification/base64" \
   -H "Content-Type: application/json" \
   -d '{"image_data": "base64_encoded_image"}'
 ```
@@ -91,17 +114,17 @@ curl -X POST "http://localhost:8000/predict/image-classification/base64" \
 
 ```bash
 # Generate text
-curl -X POST "http://localhost:8000/generate/text" \
+curl -X POST "http://localhost:8000/text-generation/" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Write about machine learning"}'
 
 # Generate outline
-curl -X POST "http://localhost:8000/generate/outline" \
+curl -X POST "http://localhost:8000/text-generation/outline" \
   -H "Content-Type: application/json" \
   -d '{"topic": "Getting started with AI", "num_sections": 5}'
 
 # Generate blog post
-curl -X POST "http://localhost:8000/generate/post" \
+curl -X POST "http://localhost:8000/text-generation/post" \
   -H "Content-Type: application/json" \
   -d '{"topic": "Introduction to FastAPI", "tone": "informative"}'
 ```
@@ -110,7 +133,7 @@ curl -X POST "http://localhost:8000/generate/post" \
 
 ```bash
 # User recommendations
-curl -X POST "http://localhost:8000/predict/recommendations/user" \
+curl -X POST "http://localhost:8000/recommendations/user" \
   -H "Content-Type: application/json" \
   -d '{
     "user_profile": {
@@ -147,18 +170,27 @@ ml-service/
 └── .env.example
 ```
 
-## Models Used
+## Models Used (via Hugging Face API)
 
-- **Sentiment**: `distilbert-base-uncased-finetuned-sst-2-english` (~250MB)
-- **Image Classification**: `microsoft/resnet-50` (~100MB)
-- **Text Generation**: `google/flan-t5-base` (~900MB)
+- **Sentiment**: `cardiffnlp/twitter-roberta-base-sentiment-latest`
+- **Image Classification**: `microsoft/resnet-50`
+- **Text Generation**: `google/flan-t5-base`
+
+**Note**: Models are accessed via Hugging Face Inference API - no local downloads required when using API mode.
 
 ## Performance
 
+### With Hugging Face API (Recommended)
+- **API Response Time**: < 500ms (network dependent)
+- **Startup Time**: ~5 seconds (no model loading)
+- **Memory Usage**: ~200MB (service only)
+- **Concurrent Requests**: Configurable (default: 10)
+
+### With Local Models
 - **API Response Time**: < 300ms (cached), < 2s (cold start)
 - **Model Loading**: ~30 seconds on startup
 - **Memory Usage**: ~2GB with all models loaded
-- **Concurrent Requests**: Configurable (default: 10)
+- **Disk Space**: ~1.5GB for all models
 
 ## Development
 
@@ -216,7 +248,32 @@ See `../deployment/k8s/` for Kubernetes manifests.
 
 ## Troubleshooting
 
-### Model Download Issues
+### Hugging Face API Issues
+
+```bash
+# Test API token
+curl -H "Authorization: Bearer your_token_here" \
+     https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest \
+     -d '{"inputs": "test"}'
+
+# Check if token is set
+echo $HUGGINGFACE_API_TOKEN
+
+# Test mode detection
+python test_api_mode.py
+```
+
+### Model Download Issues (Local Mode Only)
+
+If you're having trouble with model downloads, we strongly recommend using the Hugging Face API instead:
+
+```bash
+# Set up API token
+export HUGGINGFACE_API_TOKEN=your_token_here
+# Restart service - it will automatically use API mode
+```
+
+If you must use local models:
 
 ```bash
 # Download specific model
@@ -228,15 +285,24 @@ df -h
 
 ### Memory Issues
 
-- Reduce `MAX_CONCURRENT_REQUESTS` in environment
-- Use CPU instead of GPU: `TORCH_DEVICE=cpu`
-- Load only required models
+- **API Mode**: Minimal memory usage (~200MB)
+- **Local Mode**:
+  - Reduce `MAX_CONCURRENT_REQUESTS` in environment
+  - Use CPU instead of GPU: `TORCH_DEVICE=cpu`
+  - Load only required models
 
 ### Performance Optimization
 
-- Enable Redis caching
-- Use batch endpoints for multiple requests
-- Monitor model loading times
+- **Use Hugging Face API**: No startup time, lower memory usage
+- **Enable Redis caching**: Reduces API calls and improves response times
+- **Use batch endpoints**: More efficient for multiple requests
+- **Monitor API usage**: Check Hugging Face rate limits
+
+### Getting Help
+
+- **API Setup**: See [HF_API_SETUP.md](./HF_API_SETUP.md) for detailed instructions
+- **Rate Limits**: Check [Hugging Face pricing](https://huggingface.co/pricing)
+- **Service Status**: Monitor health endpoint: `/health`
 
 ## License
 

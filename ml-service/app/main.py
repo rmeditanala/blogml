@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from app.routes import sentiment, recommendations, image_classification, text_generation
 from app.services.model_loader import ModelLoader
@@ -21,11 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(sentiment.router, prefix="/predict/sentiment", tags=["sentiment"])
-app.include_router(recommendations.router, prefix="/predict/recommendations", tags=["recommendations"])
-app.include_router(image_classification.router, prefix="/predict/image-classification", tags=["image"])
-app.include_router(text_generation.router, prefix="/generate", tags=["text-generation"])
+# Include routers (updated routes for API-first approach)
+app.include_router(sentiment.router, prefix="/sentiment", tags=["sentiment"])
+app.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
+app.include_router(image_classification.router, prefix="/image-classification", tags=["image"])
+app.include_router(text_generation.router, prefix="/text-generation", tags=["text-generation"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -38,10 +42,12 @@ async def root():
         "message": "BlogML ML Service",
         "version": "1.0.0",
         "endpoints": {
-            "sentiment": "/predict/sentiment",
-            "recommendations": "/predict/recommendations",
-            "image_classification": "/predict/image-classification",
-            "text_generation": "/generate"
+            "sentiment": "/sentiment",
+            "sentiment_batch": "/sentiment/batch",
+            "recommendations": "/recommendations/user",
+            "image_classification": "/image-classification",
+            "text_generation": "/text-generation",
+            "health": "/health"
         }
     }
 

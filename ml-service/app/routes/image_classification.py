@@ -4,6 +4,8 @@ from typing import List, Optional, Dict, Any
 import io
 import hashlib
 import json
+import tempfile
+import os
 from PIL import Image
 import base64
 
@@ -75,9 +77,17 @@ async def classify_image(
                 result["cached"] = True
                 return ImageClassificationResponse(**result)
 
-        # Get classification
-        classifier = ModelLoader.get_model('image_classifier')
-        predictions = classifier(image)
+        # Get classification using Hugging Face API or local model
+        # Save image to temporary file for API calls
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            image.save(temp_file, format='JPEG')
+            temp_file_path = temp_file.name
+
+        try:
+            predictions = ModelLoader.classify_image(temp_file_path)
+        finally:
+            # Clean up temporary file
+            os.unlink(temp_file_path)
 
         # Filter to top N tags and format response
         top_predictions = predictions[:max_tags]
@@ -143,9 +153,17 @@ async def classify_image_base64(
                 result["cached"] = True
                 return ImageClassificationResponse(**result)
 
-        # Classification
-        classifier = ModelLoader.get_model('image_classifier')
-        predictions = classifier(image)
+        # Classification using Hugging Face API or local model
+        # Save image to temporary file for API calls
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            image.save(temp_file, format='JPEG')
+            temp_file_path = temp_file.name
+
+        try:
+            predictions = ModelLoader.classify_image(temp_file_path)
+        finally:
+            # Clean up temporary file
+            os.unlink(temp_file_path)
 
         # Format response
         top_predictions = predictions[:max_tags]

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
-import torch
 import re
 import hashlib
 import json
@@ -123,36 +122,11 @@ async def generate_text(request: TextGenerationRequest):
                 result["cached"] = True
                 return TextGenerationResponse(**result)
 
-        # Get model components
-        tokenizer = ModelLoader.get_model('text_tokenizer')
-        model = ModelLoader.get_model('text_generator')
-
-        if not tokenizer or not model:
-            raise HTTPException(status_code=503, detail="Text generation model not loaded")
-
-        # Tokenize input
-        inputs = tokenizer(
+        # Generate text using Hugging Face API or local model
+        generated_text = ModelLoader.generate_text(
             request.prompt,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
+            max_length=request.max_length
         )
-
-        # Generate text
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_length=request.max_length,
-                temperature=request.temperature,
-                num_beams=request.num_beams,
-                early_stopping=True,
-                no_repeat_ngram_size=2,
-                do_sample=True
-            )
-
-        # Decode and clean generated text
-        generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
         cleaned_text = text_service.clean_generated_text(generated_text)
 
         response_data = {
