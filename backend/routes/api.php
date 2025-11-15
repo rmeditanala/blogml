@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\PostController;
 use App\Http\Controllers\Api\V1\CommentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\RecommendationController;
+use App\Http\Controllers\Api\V1\UploadController;
 
 /*
 |--------------------------------------------------------------------------
@@ -65,6 +66,10 @@ Route::prefix('v1')->group(function () {
         // AI generation (protected)
         Route::post('/ai/generate-post', [PostController::class, 'generatePost']);
         Route::post('/ai/generate-outline', [PostController::class, 'generateOutline']);
+
+        // Image upload (protected)
+        Route::post('/upload', [UploadController::class, 'upload']);
+        Route::delete('/upload', [UploadController::class, 'destroy']);
     });
 
     // Admin routes (protected + admin middleware)

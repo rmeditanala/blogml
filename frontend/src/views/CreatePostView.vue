@@ -27,6 +27,79 @@
               >
             </div>
 
+            <!-- Featured Image -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Featured Image
+              </label>
+
+              <!-- Image Upload Area -->
+              <div class="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <div v-if="!imagePreview" class="text-center">
+                  <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  <div class="mt-2">
+                    <label for="image-upload" class="cursor-pointer">
+                      <span class="mt-2 block text-sm font-medium text-gray-900">
+                        Click to upload or drag and drop
+                      </span>
+                      <span class="text-xs text-gray-500">
+                        PNG, JPG, GIF up to 5MB
+                      </span>
+                    </label>
+                    <input id="image-upload"
+                           ref="imageInput"
+                           @change="handleImageSelect"
+                           type="file"
+                           class="sr-only"
+                           accept="image/*">
+                  </div>
+                </div>
+
+                <!-- Image Preview -->
+                <div v-else class="relative">
+                  <img :src="imagePreview" alt="Preview" class="w-full h-48 object-cover rounded-lg">
+                  <button type="button" @click="removeImage" class="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+
+                  <!-- ML Analysis Results -->
+                  <div v-if="imageAnalysis" class="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <h4 class="text-sm font-medium text-blue-900 mb-2">🤖 AI Analysis Results:</h4>
+                    <div v-if="imageAnalysis.classification && imageAnalysis.classification.length > 0" class="text-xs text-blue-800">
+                      <strong>Classification:</strong>
+                      <div class="mt-1">
+                        <span v-for="item in imageAnalysis.classification" :key="item.tag"
+                              class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-1 mb-1">
+                          {{ item.tag }} ({{ (item.confidence * 100).toFixed(1) }}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div v-if="imageAnalysis.alt_text && imageAnalysis.alt_text !== 'Text generation unavailable'" class="text-xs text-blue-800 mt-2">
+                      <strong>{{ imageAnalysis.generation_params?.fallback ? 'Generated Alt Text:' : 'AI Generated Alt Text:' }}</strong> {{ imageAnalysis.alt_text }}
+                    </div>
+                    <div v-if="imageAnalysis.error" class="text-xs text-red-800 mt-2">
+                      <strong>Analysis Error:</strong> {{ imageAnalysis.error }}
+                    </div>
+                  </div>
+
+                  <!-- Loading State -->
+                  <div v-if="imageAnalyzing" class="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center text-sm text-gray-600">
+                      <svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Analyzing image with AI...
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Excerpt -->
             <div>
               <label for="excerpt" class="block text-sm font-medium text-gray-700 mb-2">
@@ -174,9 +247,19 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { postService } from '../services/postService'
+import { imageService } from '../services/imageService'
+import { mlService } from '../services/mlService'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+// Image upload state
+const imageInput = ref(null)
+const selectedImage = ref(null)
+const imagePreview = ref(null)
+const imageAnalysis = ref(null)
+const imageAnalyzing = ref(false)
+const uploadedImageUrl = ref(null)
 
 const form = ref({
   title: '',
@@ -199,8 +282,21 @@ const handleSubmit = async () => {
   error.value = null
 
   try {
+    // Upload image first if selected
+    if (selectedImage.value) {
+      try {
+        const uploadResponse = await imageService.uploadImage(selectedImage.value)
+        uploadedImageUrl.value = uploadResponse.url
+      } catch (uploadErr) {
+        error.value = 'Failed to upload image: ' + uploadErr.message
+        return
+      }
+    }
+
     const postData = {
       ...form.value,
+      featured_image: uploadedImageUrl.value,
+      image_analysis: imageAnalysis.value,
       published_at: form.value.status === 'published' ? new Date().toISOString() : null
     }
 
@@ -212,6 +308,47 @@ const handleSubmit = async () => {
     console.error('Create post error:', err)
   } finally {
     isLoading.value = false
+  }
+}
+
+const handleImageSelect = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  try {
+    // Validate image
+    imageService.validateImage(file)
+
+    selectedImage.value = file
+    imagePreview.value = imageService.createPreviewUrl(file)
+    imageAnalysis.value = null
+    imageAnalyzing.value = true
+
+    // Analyze image with ML service
+    const analysis = await mlService.analyzeImageComplete(file)
+    imageAnalysis.value = analysis
+
+  } catch (err) {
+    error.value = err.message || 'Failed to process image'
+    removeImage()
+  } finally {
+    imageAnalyzing.value = false
+  }
+}
+
+const removeImage = () => {
+  if (imagePreview.value) {
+    imageService.revokePreviewUrl(imagePreview.value)
+  }
+
+  selectedImage.value = null
+  imagePreview.value = null
+  imageAnalysis.value = null
+  uploadedImageUrl.value = null
+
+  // Clear file input
+  if (imageInput.value) {
+    imageInput.value.value = ''
   }
 }
 

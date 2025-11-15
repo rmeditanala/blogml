@@ -25,6 +25,7 @@ class Post extends Model
         'comment_count',
         'published_at',
         'featured_image',
+        'image_analysis',
         'meta_title',
         'meta_description',
     ];
@@ -35,6 +36,7 @@ class Post extends Model
         'like_count' => 'integer',
         'comment_count' => 'integer',
         'published_at' => 'datetime',
+        'image_analysis' => 'json',
     ];
 
     /**

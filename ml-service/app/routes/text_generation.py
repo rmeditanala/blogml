@@ -123,20 +123,31 @@ async def generate_text(request: TextGenerationRequest):
                 return TextGenerationResponse(**result)
 
         # Generate text using Hugging Face API or local model
-        generated_text = ModelLoader.generate_text(
+        result = ModelLoader.generate_text(
             request.prompt,
             max_length=request.max_length
         )
+
+        # Handle different response formats
+        if isinstance(result, dict):
+            # New API response format (chat completions)
+            generated_text = result.get('generated_text', 'Text generation failed')
+            generation_params = result.get('generation_params', {})
+        else:
+            # Legacy string response format
+            generated_text = result
+            generation_params = {
+                "max_length": request.max_length,
+                "temperature": request.temperature,
+                "num_beams": request.num_beams
+            }
+
         cleaned_text = text_service.clean_generated_text(generated_text)
 
         response_data = {
             "generated_text": cleaned_text,
             "prompt_used": request.prompt,
-            "generation_params": {
-                "max_length": request.max_length,
-                "temperature": request.temperature,
-                "num_beams": request.num_beams
-            },
+            "generation_params": generation_params,
             "cached": False
         }
 
