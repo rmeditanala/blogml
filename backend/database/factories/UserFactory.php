@@ -41,4 +41,26 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    /**
+     * Create a user with posts.
+     */
+    public function withPosts(int $count = 5): static
+    {
+        return $this->has(
+            \App\Models\Post::factory()->count($count)->published(),
+            'posts'
+        );
+    }
+
+    /**
+     * Create a user with published posts.
+     */
+    public function withPublishedPosts(int $count = 5): static
+    {
+        return $this->has(
+            \App\Models\Post::factory()->count($count)->published(),
+            'posts'
+        );
+    }
 }
