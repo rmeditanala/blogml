@@ -1,0 +1,73 @@
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: blogml-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: blogml
+      MYSQL_USER: blogml_user
+      MYSQL_PASSWORD: blogml_password
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: blogml-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - blogml-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 10s
+      retries: 5
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: blogml-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - blogml-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  blogml-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

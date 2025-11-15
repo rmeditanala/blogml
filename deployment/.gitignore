@@ -1,0 +1,101 @@
+# =============================================================================
+# BlogML Deployment .gitignore
+# =============================================================================
+# This file contains patterns for files that should be ignored in the deployment
+# directory when using Git version control.
+
+# =============================================================================
+# Environment Configuration Files
+# =============================================================================
+# Contains sensitive information like database passwords, API keys, and secrets
+.env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+
+# =============================================================================
+# Docker Secrets and Certificates
+# =============================================================================
+# SSL/TLS certificates and private keys
+ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Docker secrets (created dynamically)
+secrets/
+
+# =============================================================================
+# Logs and Temporary Files
+# =============================================================================
+# Application logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# =============================================================================
+# Data Directories
+# =============================================================================
+# Persistent data directories that should not be version controlled
+data/
+mysql-data/
+redis-data/
+backend-storage/
+ml-models/
+
+# =============================================================================
+# Build and Cache Files
+# =============================================================================
+# Docker build cache
+.docker/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# IDE and Editor Files
+# =============================================================================
+# Editor backup files
+*~
+*.swp
+*.swo
+.*.swp
+.*.swo
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# =============================================================================
+# Runtime and PID Files
+# =============================================================================
+# Process ID files
+*.pid
+
+# Runtime socket files
+*.sock
+
+# =============================================================================
+# Backup Files
+# =============================================================================
+# Database backups
+*.sql
+*.sql.gz
+*.dump
+
+# Configuration backups
+*.bak
+*.backup

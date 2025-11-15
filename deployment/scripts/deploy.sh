@@ -101,7 +101,8 @@ create_secrets() {
 
     # Create secrets
     create_secret_if_not_exists "mysql_root_password" "$MYSQL_ROOT_PASSWORD"
-    create_secret_if_not_exists "mysql_password" "$MYSQL_PASSWORD"
+    create_secret_if_not_exists "db_password" "$MYSQL_PASSWORD"
+    create_secret_if_not_exists "mail_password" "$MAIL_PASSWORD"
     create_secret_if_not_exists "app_key" "$APP_KEY"
     create_secret_if_not_exists "hf_token" "$HF_TOKEN"
 

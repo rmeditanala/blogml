@@ -5,12 +5,11 @@ services:
   mysql:
     image: mysql:8.0
     secrets:
-      - mysql_root_password
       - mysql_password
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-blogml}
       MYSQL_USER: ${DB_USERNAME:-blogml_user}
-      MYSQL_ROOT_PASSWORD__FILE: /run/secrets/mysql_root_password
+      MYSQL_ROOT_PASSWORD: SecureRootPassword123!
       MYSQL_PASSWORD__FILE: /run/secrets/mysql_password
     volumes:
       - mysql_data:/var/lib/mysql
@@ -19,14 +18,11 @@ services:
       - blogml-network
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.role == manager
       resources:
         limits:
-          memory: 2G
-        reservations:
           memory: 1G
+        reservations:
+          memory: 512M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -51,9 +47,6 @@ services:
       - blogml-network
     deploy:
       replicas: 1
-      placement:
-        constraints:
-          - node.role == worker
       resources:
         limits:
           memory: 512M
@@ -77,10 +70,10 @@ services:
 
   # Backend API (Laravel) - Production Configuration
   backend:
-    image: blogml/backend:latest
+    image: blogml-backend:latest
     secrets:
       - app_key
-      - db_password
+      - mysql_password
       - mail_password
     environment:
       APP_NAME: ${APP_NAME:-BlogML}
@@ -95,7 +88,7 @@ services:
       DB_PORT: 3306
       DB_DATABASE: ${DB_DATABASE:-blogml}
       DB_USERNAME: ${DB_USERNAME:-blogml_user}
-      DB_PASSWORD__FILE: /run/secrets/db_password
+      DB_PASSWORD__FILE: /run/secrets/mysql_password
       BROADCAST_DRIVER: log
       CACHE_DRIVER: redis
       FILESYSTEM_DISK: local
@@ -121,15 +114,12 @@ services:
     networks:
       - blogml-network
     deploy:
-      replicas: 3
-      placement:
-        constraints:
-          - node.role == worker
+      replicas: 1
       resources:
         limits:
-          memory: 1G
-        reservations:
           memory: 512M
+        reservations:
+          memory: 256M
       restart_policy:
         condition: on-failure
         delay: 10s
@@ -139,9 +129,6 @@ services:
         delay: 30s
         failure_action: rollback
         order: start-first
-    depends_on:
-      - mysql
-      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
       timeout: 30s
@@ -151,7 +138,7 @@ services:
 
   # ML Service (Python FastAPI) - Production Configuration
   ml-service:
-    image: blogml/ml-service:latest
+    image: blogml-ml-service:latest
     secrets:
       - hf_token
     environment:
@@ -160,22 +147,19 @@ services:
       BACKEND_URL: http://backend:9000
       LOG_LEVEL: ${ML_LOG_LEVEL:-INFO}
       MODEL_CACHE_DIR: /app/models
-      MAX_WORKERS: 4
+      MAX_WORKERS: 2
     volumes:
       - ml_models:/app/models
       - ml_logs:/app/logs
     networks:
       - blogml-network
     deploy:
-      replicas: 2
-      placement:
-        constraints:
-          - node.role == worker
+      replicas: 1
       resources:
         limits:
-          memory: 4G
-        reservations:
           memory: 2G
+        reservations:
+          memory: 1G
       restart_policy:
         condition: on-failure
         delay: 15s
@@ -185,8 +169,6 @@ services:
         delay: 60s
         failure_action: rollback
         order: start-first
-    depends_on:
-      - redis
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       timeout: 30s
@@ -196,22 +178,19 @@ services:
 
   # Frontend (Vue.js) - Production Configuration
   frontend:
-    image: blogml/frontend:latest
+    image: blogml-frontend:latest
     environment:
       VITE_API_URL: ${VITE_API_URL:-https://blogml.local/api}
       VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-https://blogml.local/ml}
     networks:
       - blogml-network
     deploy:
-      replicas: 2
-      placement:
-        constraints:
-          - node.role == worker
+      replicas: 1
       resources:
         limits:
-          memory: 256M
-        reservations:
           memory: 128M
+        reservations:
+          memory: 64M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -221,9 +200,6 @@ services:
         delay: 20s
         failure_action: rollback
         order: start-first
-    depends_on:
-      - backend
-      - ml-service
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       timeout: 10s
@@ -242,21 +218,18 @@ services:
       - "443:443"
       - "8080:8080"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
       - nginx_cache:/var/cache/nginx
     networks:
       - blogml-network
     deploy:
-      replicas: 2
-      placement:
-        constraints:
-          - node.role == worker
+      replicas: 1
       resources:
         limits:
-          memory: 256M
-        reservations:
           memory: 128M
+        reservations:
+          memory: 64M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -266,10 +239,6 @@ services:
         delay: 10s
         failure_action: rollback
         order: start-first
-    depends_on:
-      - frontend
-      - backend
-      - ml-service
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/health"]
       timeout: 10s
@@ -284,8 +253,6 @@ secrets:
   mysql_password:
     external: true
   app_key:
-    external: true
-  db_password:
     external: true
   mail_password:
     external: true
@@ -303,43 +270,43 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/data/mysql
+      device: /Users/rizkytm/blogml-data/mysql
   redis_data:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/data/redis
+      device: /Users/rizkytm/blogml-data/redis
   backend_storage:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/data/backend/storage
+      device: /Users/rizkytm/blogml-data/backend/storage
   backend_logs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/logs/backend
+      device: /Users/rizkytm/blogml-logs/backend
   ml_models:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/data/ml-models
+      device: /Users/rizkytm/blogml-data/ml-models
   ml_logs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/logs/ml-service
+      device: /Users/rizkytm/blogml-logs/ml-service
   nginx_logs:
     driver: local
     driver_opts:
       type: none
       o: bind
-      device: /opt/blogml/logs/nginx
+      device: /Users/rizkytm/blogml-logs/nginx
   nginx_cache:
     driver: local
 

@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
