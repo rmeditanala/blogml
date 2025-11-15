@@ -76,6 +76,62 @@ export const mlService = {
     return 'Digital image or graphic element'
   },
 
+  // Generate text using ML service
+  async generateText(prompt, max_length = 100, temperature = 0.7) {
+    try {
+      const response = await axios.post(`${ML_BASE_URL}/text-generation/text`, {
+        prompt: prompt,
+        max_length: max_length,
+        temperature: temperature
+      }, {
+        timeout: 60000 // 1 minute timeout
+      })
+
+      return response.data
+    } catch (error) {
+      console.error('ML Service text generation failed:', error)
+      // Return fallback response
+      return {
+        generated_text: "Generated text unavailable",
+        prompt_used: prompt,
+        generation_params: { fallback: true },
+        cached: false
+      }
+    }
+  },
+
+  // Generate complete blog post using ML service
+  async generateBlogPost(options) {
+    try {
+      const response = await axios.post(`${ML_BASE_URL}/text-generation/post`, {
+        topic: options.topic,
+        tone: options.tone || 'informative',
+        target_length: options.target_length || 1000,
+        target_audience: options.target_audience || 'general',
+        outline: options.outline || null
+      }, {
+        timeout: 120000 // 2 minutes timeout for longer content
+      })
+
+      return response.data
+    } catch (error) {
+      console.error('ML Service blog post generation failed:', error)
+      // Return fallback response
+      return {
+        post_content: `Generated content about ${options.topic}`,
+        title: `Blog Post about ${options.topic}`,
+        sections: ['Introduction', 'Main Content', 'Conclusion'],
+        metadata: {
+          topic: options.topic,
+          tone: options.tone,
+          target_length: options.target_length,
+          actual_length: 0,
+          generated_with: 'fallback'
+        }
+      }
+    }
+  },
+
   // Combined image analysis (classification + alt text)
   async analyzeImageComplete(file) {
     try {
