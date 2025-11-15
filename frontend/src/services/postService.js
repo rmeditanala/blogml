@@ -49,5 +49,10 @@ export const postService = {
   async getPostComments(slug) {
     const response = await api.get(`/posts/${slug}/comments`)
     return response.data
+  },
+
+  async createComment(slug, commentData) {
+    const response = await api.post(`/posts/${slug}/comments`, commentData)
+    return response.data
   }
 }

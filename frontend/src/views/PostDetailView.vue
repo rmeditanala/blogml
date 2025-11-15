@@ -144,11 +144,16 @@
                   class="input-field"
                   placeholder="Share your thoughts..."
                   required
+                  maxlength="2000"
                 ></textarea>
+                <div class="mt-2 flex justify-between text-sm text-gray-500">
+                  <span>Minimum 3 characters</span>
+                  <span>{{ newComment.length }}/2000 characters</span>
+                </div>
               </div>
               <button
                 type="submit"
-                :disabled="commentLoading || !newComment.trim()"
+                :disabled="commentLoading || !newComment.trim() || newComment.trim().length < 3"
                 class="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {{ commentLoading ? 'Posting...' : 'Post Comment' }}
@@ -300,20 +305,36 @@ const submitComment = async () => {
   commentLoading.value = true
 
   try {
-    // Mock comment submission (would implement in real app)
-    const comment = {
-      id: Date.now(),
-      content: newComment.value,
-      user: authStore.user,
-      created_at: new Date().toISOString(),
-      sentiment_label: null
+    const response = await postService.createComment(post.value.slug, {
+      content: newComment.value.trim()
+    })
+
+    // Add the new comment to the comments list
+    const newCommentData = response.data || response.comment
+    if (newCommentData) {
+      comments.value.unshift({
+        ...newCommentData,
+        user: {
+          name: authStore.user?.name || 'Anonymous'
+        }
+      })
+
+      // Update comment count
+      post.value.comment_count = (post.value.comment_count || 0) + 1
     }
 
-    comments.value.unshift(comment)
-    post.value.comment_count = (post.value.comment_count || 0) + 1
+    // Clear the comment form
     newComment.value = ''
   } catch (err) {
     console.error('Submit comment error:', err)
+
+    // Show user-friendly error message
+    const errorMessage = err.response?.data?.message ||
+                      err.response?.data?.errors?.content?.[0] ||
+                      'Failed to post comment. Please try again.'
+
+    // You could add a toast notification here
+    alert(errorMessage)
   } finally {
     commentLoading.value = false
   }
