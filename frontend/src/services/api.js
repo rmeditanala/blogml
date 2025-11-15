@@ -1,8 +1,19 @@
 import axios from 'axios'
 
-// Create axios instance with default configuration
+// Get API base URL from environment variables
+const getApiBaseUrl = () => {
+  const envBaseUrl = import.meta.env.VITE_API_BASE_URL
+  if (envBaseUrl) {
+    // If environment variable is set, use it with /v1 suffix
+    return envBaseUrl.endsWith('/v1') ? envBaseUrl : `${envBaseUrl}/v1`
+  }
+  // Fallback for local development without proxy
+  return 'http://localhost:9000/api/v1'
+}
+
+// Create axios instance with dynamic configuration
 const api = axios.create({
-  baseURL: 'http://localhost:9000/api/v1',
+  baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
