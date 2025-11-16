@@ -519,7 +519,7 @@ class CommentController extends Controller
     private function analyzeSentiment(string $text): ?array
     {
         try {
-            $mlServiceUrl = config('services.ml.url', 'http://localhost:8000') . '/sentiment';
+            $mlServiceUrl = config('services.ml.url', 'http://localhost:8000') . '/sentiment/';
             $timeout = config('services.ml.timeout', 10);
 
             $response = \Http::timeout($timeout)->post($mlServiceUrl, [

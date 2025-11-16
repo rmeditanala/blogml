@@ -8,7 +8,7 @@ const getApiBaseUrl = () => {
     return envBaseUrl.endsWith('/v1') ? envBaseUrl : `${envBaseUrl}/v1`
   }
   // Fallback for local development without proxy
-  return 'http://localhost:9000/api/v1'
+  return 'http://localhost/api/v1'
 }
 
 // Create axios instance with dynamic configuration

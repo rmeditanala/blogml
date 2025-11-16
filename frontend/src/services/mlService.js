@@ -19,12 +19,31 @@ export const mlService = {
     return response.data
   },
 
-  // Generate alt text using ML service (using general text generation)
-  // Note: This doesn't actually use the image file, just generates generic alt text
-  async generateAltText(file) {
+  // Generate alt text using ML service with image analysis tags
+  async generateAltText(file, imageTags = null) {
     try {
+      let prompt
+
+      if (imageTags && imageTags.length > 0) {
+        // Use image analysis tags to create a more specific prompt
+        const tagsText = Array.isArray(imageTags) ? imageTags.join(', ') : imageTags
+        prompt = `Generate a descriptive alt text for accessibility purposes based on these image analysis tags: ${tagsText}.
+
+Requirements:
+- Make it concise but descriptive (under 100 characters)
+- Focus on the most important visual elements from the tags
+- Use clear, simple language for screen readers
+- Describe the main scene, objects, and activities
+- Create a coherent description from these identified elements: ${tagsText}
+
+Example format: "A [object] [action] [location] with [details]"`
+      } else {
+        // Fallback to generic prompt when no tags available
+        prompt = `Generate a descriptive alt text for a blog post image. The alt text should be concise but descriptive for accessibility purposes. Keep it under 100 characters.`
+      }
+
       const response = await axios.post(`${ML_BASE_URL}/text-generation/text`, {
-        prompt: `Generate a descriptive alt text for a blog post image. The alt text should be concise but descriptive for accessibility purposes. Keep it under 100 characters.`,
+        prompt: prompt,
         max_length: 100,
         temperature: 0.7
       }, {
@@ -132,17 +151,23 @@ export const mlService = {
     }
   },
 
-  // Combined image analysis (classification + alt text)
+  // Combined image analysis (classification + alt text with tags)
   async analyzeImageComplete(file) {
     try {
-      const [classification, altText] = await Promise.all([
-        this.analyzeImage(file),
-        this.generateAltText(file)
-      ])
+      // First, get image classification to get tags
+      const classification = await this.analyzeImage(file)
+
+      // Extract tags from classification response
+      const tags = classification.tags || classification.predictions?.map(p => p.label) || []
+
+      // Generate alt text using the image analysis tags
+      const altText = await this.generateAltText(file, tags)
 
       return {
         classification: classification.tags || classification, // Handle both formats
+        tags: tags, // Include extracted tags
         alt_text: typeof altText === 'string' ? altText : altText?.generated_text || '',
+        alt_text_prompt: altText?.prompt_used || '',
         success: true
       }
     } catch (error) {
