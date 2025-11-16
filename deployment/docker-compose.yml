@@ -105,6 +105,7 @@ services:
     restart: unless-stopped
     environment:
       HF_TOKEN: ${HF_TOKEN}
+      HUGGINGFACE_API_TOKEN: ${HUGGINGFACE_API_TOKEN}
       REDIS_URL: redis://redis:6379
       BACKEND_URL: http://backend:9000
       LOG_LEVEL: ${ML_LOG_LEVEL:-INFO}
@@ -129,10 +130,8 @@ services:
     container_name: blogml-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:9000}
-      VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-http://localhost:8000}
-    ports:
-      - "80:80"
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
+      VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-http://localhost/ml}
     depends_on:
       - backend
       - ml-service
@@ -149,8 +148,8 @@ services:
     container_name: blogml-nginx
     restart: unless-stopped
     ports:
+      - "80:80"
       - "443:443"
-      - "8080:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro

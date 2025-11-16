@@ -27,14 +27,14 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set working directory
 WORKDIR /var/www/html
 
+# Copy application code first (needed for artisan)
+COPY . .
+
 # Copy composer files
 COPY composer.json composer.lock ./
 
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader
-
-# Copy application code
-COPY . .
 
 # Copy PHP configuration
 COPY php.ini /usr/local/etc/php/php.ini
