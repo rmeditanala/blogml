@@ -1,16 +1,14 @@
 version: '3.8'
 
 services:
-  # MySQL Database - Production Configuration
+  # MySQL Database
   mysql:
     image: mysql:8.0
-    secrets:
-      - mysql_password
     environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${DB_DATABASE:-blogml}
       MYSQL_USER: ${DB_USERNAME:-blogml_user}
-      MYSQL_ROOT_PASSWORD: SecureRootPassword123!
-      MYSQL_PASSWORD__FILE: /run/secrets/mysql_password
+      MYSQL_PASSWORD: ${DB_PASSWORD:-blogml_password}
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
@@ -38,7 +36,7 @@ services:
       retries: 3
       start_period: 60s
 
-  # Redis Cache - Production Configuration
+  # Redis Cache
   redis:
     image: redis:7-alpine
     volumes:
@@ -60,7 +58,7 @@ services:
         parallelism: 1
         delay: 10s
         failure_action: rollback
-    command: redis-server --appendonly yes --maxmemory 400mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       timeout: 10s
@@ -68,19 +66,15 @@ services:
       retries: 3
       start_period: 30s
 
-  # Backend API (Laravel) - Production Configuration
+  # Backend API (Laravel)
   backend:
-    image: blogml-backend:latest
-    secrets:
-      - app_key
-      - mysql_password
-      - mail_password
+    image: blogml/backend:latest
     environment:
       APP_NAME: ${APP_NAME:-BlogML}
-      APP_ENV: ${APP_ENV:-production}
-      APP_KEY__FILE: /run/secrets/app_key
-      APP_DEBUG: ${APP_DEBUG:-false}
-      APP_URL: ${APP_URL:-https://blogml.local}
+      APP_ENV: ${APP_ENV:-local}
+      APP_KEY: ${APP_KEY:-base64:EWsyRMLy784gJZfY8RqX9tWcA6ZI9rsue4e2X}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:9000}
       LOG_CHANNEL: ${LOG_CHANNEL:-stack}
       LOG_LEVEL: ${LOG_LEVEL:-error}
       DB_CONNECTION: mysql
@@ -88,26 +82,26 @@ services:
       DB_PORT: 3306
       DB_DATABASE: ${DB_DATABASE:-blogml}
       DB_USERNAME: ${DB_USERNAME:-blogml_user}
-      DB_PASSWORD__FILE: /run/secrets/mysql_password
+      DB_PASSWORD: ${DB_PASSWORD:-blogml_password}
       BROADCAST_DRIVER: log
       CACHE_DRIVER: redis
       FILESYSTEM_DISK: local
       QUEUE_CONNECTION: database
-      SESSION_DRIVER: redis
+      SESSION_DRIVER: file
       SESSION_LIFETIME: 120
       REDIS_HOST: redis
       REDIS_PASSWORD: null
       REDIS_PORT: 6379
       MEMCACHED_HOST: 127.0.0.1:11211
       ML_SERVICE_URL: http://ml-service:8000
-      MAIL_MAILER: ${MAIL_MAILER:-smtp}
-      MAIL_HOST: ${MAIL_HOST:-smtp.mailtrap.io}
-      MAIL_PORT: ${MAIL_PORT:-2525}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD__FILE: /run/secrets/mail_password
-      MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
-      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS}
-      MAIL_FROM_NAME: ${APP_NAME}
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USERNAME: null
+      MAIL_PASSWORD: null
+      MAIL_ENCRYPTION: null
+      MAIL_FROM_ADDRESS: "hello@example.com"
+      MAIL_FROM_NAME: "${APP_NAME}"
     volumes:
       - backend_storage:/var/www/html/storage
       - backend_logs:/var/www/html/storage/logs
@@ -129,20 +123,13 @@ services:
         delay: 30s
         failure_action: rollback
         order: start-first
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
-      timeout: 30s
-      interval: 30s
-      retries: 3
-      start_period: 60s
-
-  # ML Service (Python FastAPI) - Production Configuration
+  
+  # ML Service (Python FastAPI)
   ml-service:
-    image: blogml-ml-service:latest
-    secrets:
-      - hf_token
+    image: blogml/ml-service:latest
     environment:
-      HF_TOKEN__FILE: /run/secrets/hf_token
+      HF_TOKEN: ${HF_TOKEN}
+      HUGGINGFACE_API_TOKEN: ${HUGGINGFACE_API_TOKEN}
       REDIS_URL: redis://redis:6379
       BACKEND_URL: http://backend:9000
       LOG_LEVEL: ${ML_LOG_LEVEL:-INFO}
@@ -176,12 +163,12 @@ services:
       retries: 3
       start_period: 120s
 
-  # Frontend (Vue.js) - Production Configuration
+  # Frontend (Vue.js)
   frontend:
-    image: blogml-frontend:latest
+    image: blogml/frontend:latest
     environment:
-      VITE_API_URL: ${VITE_API_URL:-https://blogml.local/api}
-      VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-https://blogml.local/ml}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost/api}
+      VITE_ML_SERVICE_URL: ${VITE_ML_SERVICE_URL:-http://localhost/ml}
     networks:
       - blogml-network
     deploy:
@@ -207,22 +194,20 @@ services:
       retries: 3
       start_period: 30s
 
-  # Nginx Reverse Proxy - Production Configuration
+  # Nginx Reverse Proxy
   nginx:
     image: nginx:alpine
-    secrets:
-      - ssl_cert
-      - ssl_key
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"
     volumes:
-      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
       - nginx_cache:/var/cache/nginx
+      - ./nginx/wait-for-services.sh:/wait-for-services.sh:ro
     networks:
       - blogml-network
+    command: /bin/sh -c "chmod +x /wait-for-services.sh && /wait-for-services.sh && nginx -g 'daemon off;'"
     deploy:
       replicas: 1
       resources:
@@ -232,8 +217,8 @@ services:
           memory: 64M
       restart_policy:
         condition: on-failure
-        delay: 5s
-        max_attempts: 3
+        delay: 10s
+        max_attempts: 5
       update_config:
         parallelism: 1
         delay: 10s
@@ -246,67 +231,22 @@ services:
       retries: 3
       start_period: 30s
 
-# Secrets for production
-secrets:
-  mysql_root_password:
-    external: true
-  mysql_password:
-    external: true
-  app_key:
-    external: true
-  mail_password:
-    external: true
-  hf_token:
-    external: true
-  ssl_cert:
-    external: true
-  ssl_key:
-    external: true
-
 # Persistent volumes
 volumes:
   mysql_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-data/mysql
   redis_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-data/redis
   backend_storage:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-data/backend/storage
   backend_logs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-logs/backend
   ml_models:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-data/ml-models
   ml_logs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-logs/ml-service
   nginx_logs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /Users/rizkytm/blogml-logs/nginx
   nginx_cache:
     driver: local
 

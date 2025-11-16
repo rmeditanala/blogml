@@ -1,7 +1,7 @@
 import axios from 'axios'
 
-// Direct ML service calls
-const ML_BASE_URL = 'http://localhost:8000'
+// Direct ML service calls - use Docker Swarm service name in production
+const ML_BASE_URL = import.meta.env.PROD ? 'http://ml-service:8000' : 'http://localhost:8000'
 
 export const mlService = {
   // Analyze image using ML service
